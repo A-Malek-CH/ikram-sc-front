@@ -1,7 +1,7 @@
 // API client for interacting with the backend
 
 // Base URL for API requests
-const API_BASE_URL = "http://localhost:8000"
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
 // Helper function for making API requests
 async function fetchAPI(endpoint: string, options: RequestInit = {}) {
