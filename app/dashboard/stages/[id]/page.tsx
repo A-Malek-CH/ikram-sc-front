@@ -12,6 +12,26 @@ import Link from "next/link"
 import { useAuth } from "@/lib/auth-context"
 import { sessionAPI } from "@/lib/api"
 import { useToast } from "@/components/ui/use-toast"
+declare global {
+  interface Window {
+    SpeechRecognition: any
+    webkitSpeechRecognition: any
+  }
+}
+// 👇 Add this at the top of your `page.tsx` file
+type SpeechRecognition = any
+type SpeechRecognitionErrorEvent = {
+  error: string
+}
+type SpeechRecognitionEvent = {
+  results: {
+    [index: number]: {
+      [index: number]: {
+        transcript: string
+      }
+    }
+  }
+}
 
 type Message = {
   id: number
@@ -38,6 +58,8 @@ type Session = {
 }
 
 export default function StagePage() {
+  const hasInitialized = useRef(false); // prevents multiple init calls
+
   const params = useParams()
   const router = useRouter()
   const { token, user } = useAuth()
@@ -48,9 +70,59 @@ export default function StagePage() {
   const [newMessage, setNewMessage] = useState("")
   const [isLoading, setIsLoading] = useState(true)
   const [isSending, setIsSending] = useState(false)
+  const [isListening, setIsListening] = useState(false)
+  const recognitionRef = useRef<SpeechRecognition | null>(null)
+
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const sessionId = Number(params.id)
+  const speakText = (text: string) => {
+  if (!window.speechSynthesis) return
+
+  const utterance = new SpeechSynthesisUtterance(text)
+  utterance.lang = "ar-SA" // Arabic language
+  utterance.rate = 1        // Adjust speaking speed
+  utterance.pitch = 1       // Adjust pitch
+
+  window.speechSynthesis.speak(utterance)
+}
+
+  const startListening = () => {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
+  if (!SpeechRecognition) {
+    alert("متصفحك لا يدعم التعرف على الصوت")
+    return
+  }
+
+  const recognition = new SpeechRecognition()
+  recognition.lang = "ar-SA"
+  recognition.interimResults = false
+  recognition.maxAlternatives = 1
+
+  recognition.onstart = () => setIsListening(true)
+
+  recognition.onresult = (event: SpeechRecognitionEvent) => {
+    const transcript = event.results[0][0].transcript
+    console.log("Transcript:", transcript)
+    setNewMessage(transcript) // <- automatically fill the input
+  }
+
+  recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
+    console.error("Speech recognition error:", event.error)
+  }
+
+  recognitionRef.current = recognition
+  recognition.start()
+}
+
+const stopListening = () => {
+  if (recognitionRef.current) {
+    recognitionRef.current.stop()
+    setIsListening(false)
+  }
+}
+
+
 
   // Fetch session data
   useEffect(() => {
@@ -90,42 +162,40 @@ export default function StagePage() {
 
   // Fetch chat messages
   useEffect(() => {
-    const fetchChatMessages = async () => {
-      if (!token || !session || !session.is_unlocked) return
+  const fetchChatMessages = async () => {
+    if (!token || !session || !session.is_unlocked || hasInitialized.current) return;
 
-      try {
-        // First get existing messages
-        const existingMessages = await sessionAPI.getChatMessages(token, sessionId)
-        setMessages(existingMessages)
+    try {
+      // Step 1: Get existing chat messages
+      const existingMessages = await sessionAPI.getChatMessages(token, sessionId);
+      setMessages(existingMessages);
 
-        // Then initialize chat to get any new starter messages
-        // Only if the session is not completed
-        if (!session.is_completed) {
-          const initializedMessages = await sessionAPI.initializeChat(token, sessionId)
+      // Step 2: Initialize the chat (only if session not completed)
+      if (!session.is_completed) {
+        const initializedMessages = await sessionAPI.initializeChat(token, sessionId);
 
-          // Ensure initializedMessages is an array
-          if (Array.isArray(initializedMessages)) {
-            // Merge messages, avoiding duplicates by ID
-            const messageIds = new Set(existingMessages.map((m: Message) => m.id))
-            const newMessages = initializedMessages.filter((m: Message) => !messageIds.has(m.id))
+        if (Array.isArray(initializedMessages)) {
+          // Filter out any duplicate messages
+          const messageIds = new Set(existingMessages.map((m: Message) => m.id));
+          const newMessages = initializedMessages.filter((m: Message) => !messageIds.has(m.id));
 
-            if (newMessages.length > 0) {
-              setMessages([...existingMessages, ...newMessages])
-            }
-          } else {
-            console.error("Expected initializedMessages to be an array, but got:", initializedMessages)
+          if (newMessages.length > 0) {
+            setMessages([...existingMessages, ...newMessages]);
           }
+        } else {
+          console.error("Expected initializedMessages to be an array, but got:", initializedMessages);
         }
-      } catch (error) {
-        console.error("Failed to fetch chat messages:", error)
-        // Don't show error toast here as we already have existing messages
       }
-    }
 
-    if (session) {
-      fetchChatMessages()
+      hasInitialized.current = true; // ✅ Mark initialization as done
+    } catch (error) {
+      console.error("Failed to fetch chat messages:", error);
     }
-  }, [token, sessionId, session])
+  };
+
+  fetchChatMessages();
+}, [token, session, sessionId]);
+
 
   useEffect(() => {
     scrollToBottom()
@@ -156,7 +226,18 @@ export default function StagePage() {
 
       // Update messages with the response (which includes both user message and bot response)
       
-      setMessages(prevMessages => [...prevMessages, ...response])
+      setMessages(prevMessages => {
+  const updated = [...prevMessages, ...response]
+
+  const botMessages = response.filter((msg: Message) => !msg.is_user)
+  for (const botMessage of botMessages) {
+    speakText(botMessage.message) // 🔊 Speak each bot message
+  }
+
+  return updated
+})
+
+
       setNewMessage("")
       scrollToBottom()
     } catch (error) {
@@ -208,6 +289,31 @@ export default function StagePage() {
           <span className="text-[#1D3557] font-medium">{session.is_completed ? "مكتملة" : "قيد التقدم"}</span>
         </div>
       </div>
+        <div className="mb-4 flex justify-end">
+  <Button
+    variant="outline"
+    className="text-red-600 border-red-500 hover:bg-red-50"
+    onClick={async () => {
+      if (!confirm("هل أنت متأكد أنك تريد إعادة تعيين هذه المرحلة؟")) return;
+
+      try {
+        await sessionAPI.resetSession(token!, sessionId); // 👈 call your reset API
+        setMessages([]);
+        setSession((prev) =>
+          prev ? { ...prev, current_question: 0, is_completed: false } : null
+        );
+        hasInitialized.current = false; // 👈 allow initializeChat to run again
+        toast({ title: "تمت إعادة التعيين", description: "تمت إعادة تعيين المرحلة بنجاح." });
+      } catch (error) {
+        console.error("Reset failed", error);
+        toast({ title: "خطأ", description: "فشل في إعادة التعيين", variant: "destructive" });
+      }
+    }}
+  >
+    إعادة تعيين المرحلة
+  </Button>
+</div>
+
 
       <Card className="mb-6 border-none shadow-md bg-white overflow-hidden">
         <div className="bg-[#1D3557] text-white p-4">
@@ -264,23 +370,46 @@ export default function StagePage() {
 
           <div className="p-4 bg-[#A8DADC] bg-opacity-20 border-t border-[#A8DADC]">
             <div className="flex gap-2">
-              <Input
-                value={newMessage}
-                onChange={(e) => setNewMessage(e.target.value)}
-                placeholder="اكتب رسالتك هنا..."
-                onKeyDown={(e) => e.key === "Enter" && !isSending && handleSendMessage()}
-                disabled={!session.is_unlocked || isSending}
-                className="border-[#457B9D] focus-visible:ring-[#1D3557]"
-              />
-              <Button
-                onClick={handleSendMessage}
-                size="icon"
-                disabled={!session.is_unlocked || !newMessage.trim() || isSending}
-                className="bg-[#1D3557] hover:bg-[#457B9D] text-white"
-              >
-                <Send className="h-4 w-4" />
-              </Button>
-            </div>
+  <Input
+    value={newMessage}
+    onChange={(e) => setNewMessage(e.target.value)}
+    placeholder="اكتب رسالتك هنا..."
+    onKeyDown={(e) => e.key === "Enter" && !isSending && handleSendMessage()}
+    disabled={!session.is_unlocked || isSending}
+    className="border-[#457B9D] focus-visible:ring-[#1D3557]"
+  />
+
+  {/* 🎤 Mic button */}
+  <Button
+  type="button"
+  size="icon"
+  variant="outline"
+  onMouseDown={startListening}
+  onMouseUp={stopListening}
+  onMouseLeave={stopListening} // ← ensures stop if they move mouse off
+  onTouchStart={startListening}
+  onTouchEnd={stopListening}
+  className={`border-[#1D3557] ${
+    isListening
+      ? "bg-[#1D3557] text-white"
+      : "text-[#1D3557] hover:bg-[#1D3557] hover:text-white"
+  }`}
+>
+  🎤
+</Button>
+
+
+  {/* 📤 Send button */}
+  <Button
+    onClick={handleSendMessage}
+    size="icon"
+    disabled={!session.is_unlocked || !newMessage.trim() || isSending}
+    className="bg-[#1D3557] hover:bg-[#457B9D] text-white"
+  >
+    <Send className="h-4 w-4" />
+  </Button>
+</div>
+
             {!session.is_unlocked && (
               <p className="text-[#457B9D] text-sm mt-2">
                 هذه المرحلة غير متاحة حالياً. يرجى إكمال المراحل السابقة أولاً.

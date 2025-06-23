@@ -26,9 +26,9 @@ export default function ProfilePage() {
     first_name: "",
     last_name: "",
     email: "",
-    birth_date: "",
-    gender: "",
-    speciality: "",
+    major: "",
+    academic_year: "",
+    
   })
 
   const [newEmail, setNewEmail] = useState("")
@@ -39,17 +39,31 @@ export default function ProfilePage() {
   })
 
   useEffect(() => {
-    if (user) {
+  if (!token) return;
+
+  const fetchProfile = async () => {
+    try {
+      const data = await userAPI.getProfile(token);
       setProfileData({
-        first_name: user.first_name || "",
-        last_name: user.last_name || "",
-        email: user.email || "",
-        birth_date: user.birth_date || "",
-        gender: user.gender || "",
-        speciality: user.speciality || "",
-      })
+        first_name: data.first_name || "",
+        last_name: data.last_name || "",
+        email: data.email || "",
+        major: data.major || "",  // new field (adjust based on model)
+        academic_year: data.academic_year || "",  // if you also added academic_year
+      });
+    } catch (error) {
+      console.error("Failed to fetch profile:", error);
+      toast({
+        title: "فشل تحميل الملف الشخصي",
+        description: "حدث خطأ أثناء تحميل معلوماتك.",
+        variant: "destructive",
+      });
     }
-  }, [user])
+  };
+
+  fetchProfile();
+}, [token, toast]);
+
 
   const handleProfilePictureChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!token || !e.target.files || e.target.files.length === 0) return
@@ -77,28 +91,39 @@ export default function ProfilePage() {
   }
 
   const handleSaveProfile = async () => {
-    setIsLoading(true)
-    try {
-      updateUser({
-        first_name: profileData.first_name,
-        last_name: profileData.last_name,
-      })
-      setIsEditing(false)
-      toast({
-        title: "تم تحديث الملف الشخصي",
-        description: "تم حفظ التغييرات بنجاح",
-      })
-    } catch (error) {
-      console.error("Failed to update profile:", error)
-      toast({
-        title: "فشل تحديث الملف الشخصي",
-        description: error instanceof Error ? error.message : "حدث خطأ أثناء تحديث الملف الشخصي",
-        variant: "destructive",
-      })
-    } finally {
-      setIsLoading(false)
-    }
+  setIsLoading(true);
+  try {
+    // Update backend profile
+   if (!token) return;
+await userAPI.changeProfile(token, {
+  major: profileData.major,
+  academic_year: profileData.academic_year,
+});
+
+
+    // Update local user context
+    updateUser({
+      first_name: profileData.first_name,
+      last_name: profileData.last_name,
+    });
+
+    setIsEditing(false);
+    toast({
+      title: "تم تحديث الملف الشخصي",
+      description: "تم حفظ التغييرات بنجاح",
+    });
+  } catch (error) {
+    console.error("Failed to update profile:", error);
+    toast({
+      title: "فشل تحديث الملف الشخصي",
+      description: error instanceof Error ? error.message : "حدث خطأ أثناء تحديث الملف الشخصي",
+      variant: "destructive",
+    });
+  } finally {
+    setIsLoading(false);
   }
+};
+
 
   const handleChangeEmail = async () => {
     if (!token) return
@@ -243,8 +268,9 @@ export default function ProfilePage() {
               <h2 className="text-xl font-bold mt-4 text-[#1D3557]">{`${user.first_name} ${user.last_name}`}</h2>
               <p className="text-gray-500 text-sm">{user.email}</p>
 
-              {user.speciality && (
-                <Badge className="mt-2 bg-[#A8DADC] text-[#1D3557] hover:bg-[#E1E8ED]">{user.speciality}</Badge>
+              {profileData.major?.trim() !== "" && (
+
+                <Badge className="mt-2 bg-[#A8DADC] text-[#1D3557] hover:bg-[#E1E8ED]">{profileData.major}</Badge>
               )}
             </div>
 
@@ -304,16 +330,28 @@ export default function ProfilePage() {
                     />
                   </div>
                   <div className="space-y-2 md:col-span-2">
-                    <Label htmlFor="speciality" className="text-[#1D3557]">
+                    <Label htmlFor="major" className="text-[#1D3557]">
                       التخصص
                     </Label>
                     <Input
-                      id="speciality"
-                      value={profileData.speciality || ""}
-                      onChange={(e) => setProfileData({ ...profileData, speciality: e.target.value })}
+                      id="major"
+                      value={profileData.major || ""}
+                      onChange={(e) => setProfileData({ ...profileData, major: e.target.value })}
                       className="border-[#1D3557] focus:border-[#1D3557] focus-visible:ring-[#1D3557]"
                     />
                   </div>
+                  <div className="space-y-2 md:col-span-2">
+  <Label htmlFor="academic_year" className="text-[#1D3557]">
+    السنة الدراسية
+  </Label>
+  <Input
+    id="academic_year"
+    value={profileData.academic_year || ""}
+    onChange={(e) => setProfileData({ ...profileData, academic_year: e.target.value })}
+    className="border-[#1D3557] focus:border-[#1D3557] focus-visible:ring-[#1D3557]"
+  />
+</div>
+
                 </div>
               ) : (
                 <div className="space-y-6">
@@ -333,12 +371,16 @@ export default function ProfilePage() {
                     <p className="text-lg font-medium text-[#1D3557]">{profileData.email}</p>
                   </div>
 
-                  {profileData.speciality && (
+                  {profileData.major?.trim() !== "" && (
+
                     <div className="bg-[#A8DADC] p-4 rounded-lg">
                       <p className="text-sm font-medium text-[#1D3557] mb-1">التخصص</p>
-                      <p className="text-lg font-medium text-[#1D3557]">{profileData.speciality}</p>
+                      <p className="text-lg font-medium text-[#1D3557]">{profileData.major}</p>
                     </div>
                   )}
+                  {profileData.academic_year && (
+
+<div className="bg-[#A8DADC] p-4 rounded-lg"> <p className="text-sm font-medium text-[#1D3557] mb-1">السنة الدراسية</p> <p className="text-lg font-medium text-[#1D3557]">{profileData.academic_year}</p> </div> )}
                 </div>
               )}
             </CardContent>

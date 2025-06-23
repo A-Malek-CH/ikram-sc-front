@@ -23,6 +23,9 @@ export default function SignupPage() {
     email: "",
     password: "",
     confirmPassword: "",
+      major: "",
+  academic_year: "",
+
   })
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -48,11 +51,13 @@ export default function SignupPage() {
     try {
       // Call signup API
       const response = await authAPI.signup({
-        email: formData.email,
-        password: formData.password,
-        first_name: formData.first_name,
-        last_name: formData.last_name,
-      })
+  email: formData.email,
+  password: formData.password,
+  first_name: formData.first_name,
+  last_name: formData.last_name,
+  major: formData.major,
+  academic_year: formData.academic_year,
+})
 
       toast({
         title: "تم إنشاء الحساب بنجاح",
@@ -77,9 +82,17 @@ export default function SignupPage() {
     <div className="min-h-screen flex items-center justify-center bg-[#a8dadc] p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-6">
-          <h1 className="text-3xl font-bold text-[#1D3557]">منصة علم النفس</h1>
-          <p className="text-[#1D3557] mt-2">بوابتك للصحة النفسية</p>
-        </div>
+  <img
+    src="/logo.png"
+    alt="شعار المنصة"
+    className="mx-auto h-48 w-48 mb-6 rounded-full border-4 border-[#1D3557] shadow-lg"
+  />
+  <h1 className="text-4xl font-bold text-[#1D3557]">IKRAM-SC | Thiqati by Ikram</h1>
+  <p className="text-[#1D3557] mt-2 text-base">
+    منصة إرشاد نفسي تفاعلي لطلاب الجامعات
+  </p>
+</div>
+
         
         <Card className="border-none shadow-lg">
           <CardHeader className="pb-4">
@@ -126,7 +139,32 @@ export default function SignupPage() {
                   </div>
                 </div>
               </div>
-              
+              <div className="space-y-2">
+  <Label htmlFor="major" className="text-[#1D3557] font-medium">التخصص</Label>
+  <Input
+    id="major"
+    name="major"
+    value={formData.major}
+    onChange={handleChange}
+    placeholder="ادخل تخصصك"
+    required
+    className="bg-blue-50 border-blue-200 focus:border-blue-400 focus-visible:ring-blue-300"
+  />
+</div>
+
+<div className="space-y-2">
+  <Label htmlFor="academic_year" className="text-[#1D3557] font-medium">العام الدراسي</Label>
+  <Input
+    id="academic_year"
+    name="academic_year"
+    value={formData.academic_year}
+    onChange={handleChange}
+    placeholder="ادخل عامك الدراسي"
+    required
+    className="bg-blue-50 border-blue-200 focus:border-blue-400 focus-visible:ring-blue-300"
+  />
+</div>
+
               <div className="space-y-2">
                 <Label htmlFor="email" className="text-[#1D3557] font-medium">البريد الإلكتروني</Label>
                 <div className="relative">

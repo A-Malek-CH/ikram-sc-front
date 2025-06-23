@@ -36,7 +36,8 @@ async function fetchAPI(endpoint: string, options: RequestInit = {}) {
 // Authentication APIs
 export const authAPI = {
   // Sign up - send email, password, first_name, last_name
-  signup: async (userData: { email: string; password: string; first_name: string; last_name: string }) => {
+  signup: async (userData: { email: string; password: string; first_name: string; last_name: string ;major: string; 
+  academic_year: string; }) => {
     return fetchAPI("/users/signup/", {
       method: "POST",
       body: JSON.stringify(userData),
@@ -95,6 +96,30 @@ export const authAPI = {
 // Fix the Authorization header format in all API functions
 // User profile APIs
 export const userAPI = {
+
+  getConfidenceScore: async (token: string) => {
+  return fetchAPI("/users/confidence_score/", {
+    headers: {
+      Authorization: `Token ${token}`,
+    },
+  });
+},
+
+
+    // Change major and academic year
+  changeProfile: async (
+    token: string,
+    data: { major?: string; academic_year?: string }
+  ) => {
+    return fetchAPI("/users/change_profile/", {
+      method: "POST",
+      headers: {
+        Authorization: `Token ${token}`,
+      },
+      body: JSON.stringify(data),
+    });
+  },
+
   // Get user profile
   getProfile: async (token: string) => {
     return fetchAPI("/users/my_profile/", {
@@ -149,6 +174,8 @@ export const userAPI = {
 
 // Sessions and chat APIs
 export const sessionAPI = {
+  
+
   // Get all sessions
   getSessions: async (token: string) => {
     return fetchAPI("/users/sessions/", {
@@ -157,6 +184,16 @@ export const sessionAPI = {
       },
     })
   },
+  submitConfidenceScore: async (token: string, score: number) => {
+return fetchAPI("/users/submit_confidence_score/", {
+method: "POST",
+headers: {
+Authorization: `Token ${token}`,
+},
+body: JSON.stringify({ score }),
+});
+},
+  
 
   // Initialize chat for a session
   initializeChat: async (token: string, sessionId: number) => {
@@ -196,4 +233,20 @@ export const sessionAPI = {
       body: JSON.stringify({ session_id: sessionId, message }),
     })
   },
-}
+  resetSession: async (token: string, sessionId: number) => {
+  const response = await fetch(`${API_BASE_URL}/users/reset_session/`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Token ${token}`,
+    },
+    body: JSON.stringify({ session_id: sessionId }),
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to reset session");
+  }
+
+  return response.json();
+},
+};

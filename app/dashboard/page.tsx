@@ -31,6 +31,9 @@ export default function StagesPage() {
   const { toast } = useToast()
   const [sessions, setSessions] = useState<Session[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [showFirstLoginModal, setShowFirstLoginModal] = useState(false)
+
+
 
   useEffect(() => {
     const fetchSessions = async () => {
@@ -55,6 +58,16 @@ export default function StagesPage() {
 
     fetchSessions()
   }, [token, toast])
+  useEffect(() => {
+  if (typeof window !== "undefined") {
+    const firstLogin = localStorage.getItem("firstLogin")
+    if (firstLogin === "true") {
+      setShowFirstLoginModal(true)
+      localStorage.removeItem("firstLogin")
+    }
+  }
+}, [])
+
 
   if (isLoading) {
     return (
@@ -170,6 +183,29 @@ export default function StagesPage() {
           )}
         </div>
       </div>
+      {showFirstLoginModal && (
+  <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center">
+    <div className="bg-white rounded-lg p-6 w-full max-w-sm shadow-lg text-center">
+      <h2 className="text-xl font-bold mb-4 text-[#1D3557]">🎉 مرحباً بك!</h2>
+      <p className="text-[#457B9D] mb-6">هل ترغب بإجراء اختبار الثقة الآن؟</p>
+      <div className="flex justify-center gap-4">
+        <Link href="/dashboard/confidence-test">
+          <Button className="bg-[#1D3557] hover:bg-[#0F1C2D]">
+            نعم، بالتأكيد
+          </Button>
+        </Link>
+        <Button
+          variant="outline"
+          onClick={() => setShowFirstLoginModal(false)}
+          className="border-[#1D3557] text-[#1D3557]"
+        >
+          لاحقاً
+        </Button>
+      </div>
+    </div>
+  </div>
+)}
+
     </div>
   )
 }

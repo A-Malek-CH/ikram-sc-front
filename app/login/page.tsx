@@ -10,7 +10,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { useToast } from "@/components/ui/use-toast"
 import { authAPI } from "@/lib/api"
 import { useAuth } from "@/lib/auth-context"
-import { LockKeyhole, Mail } from 'lucide-react'
+import { LockKeyhole, Mail } from "lucide-react"
 
 export default function LoginPage() {
   const { toast } = useToast()
@@ -37,10 +37,11 @@ export default function LoginPage() {
       })
 
       login(response.token, response.role)
+      localStorage.setItem("firstLogin", "true")
 
       toast({
         title: "تم تسجيل الدخول بنجاح",
-        description: "مرحباً بك في منصة علم النفس",
+        description: "مرحباً بك في 🎓 IKRAM-SC | Thiqati by Ikram",
       })
     } catch (error) {
       console.error("Login error:", error)
@@ -57,16 +58,29 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#a8dadc] p-4">
       <div className="w-full max-w-md">
+        {/* Header */}
         <div className="text-center mb-6">
-          <h1 className="text-3xl font-bold text-[#1D3557]">منصة علم النفس</h1>
-          <p className="text-[#1D3557] mt-2">بوابتك للصحة النفسية</p>
-        </div>
-        
+  <img
+    src="/logo.png"
+    alt="شعار المنصة"
+    className="mx-auto h-48 w-48 mb-6 rounded-full border-4 border-[#1D3557] shadow-lg"
+  />
+  <h1 className="text-4xl font-bold text-[#1D3557]">IKRAM-SC | Thiqati by Ikram</h1>
+  <p className="text-[#1D3557] mt-2 text-base">
+    منصة إرشاد نفسي تفاعلي لطلاب الجامعات
+  </p>
+</div>
+
+
+
+
+
+        {/* Card */}
         <Card className="border-none shadow-lg">
           <CardHeader className="pb-4">
             <CardTitle className="text-2xl font-bold text-center text-[#1D3557]">تسجيل الدخول</CardTitle>
             <CardDescription className="text-center text-[#1D3557]">
-              أدخل بيانات حسابك للوصول إلى المنصة
+              أدخل بيانات حسابك للانضمام إلى رحلتك النفسية
             </CardDescription>
           </CardHeader>
           <CardContent>
