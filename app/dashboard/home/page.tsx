@@ -64,7 +64,7 @@ export default function HomePage() {
         {testProgress !== null ? (
           <>
             <Progress value={(testProgress/240)*100} className="h-5 bg-[#f1faee]" />
-            <div className="mt-2 text-[#1D3557] font-bold">{testProgress}/240 مستوى الثقة</div>
+            <div className="mt-2 text-[#1D3557] font-bold">{testProgress}/192 مستوى الثقة</div>
           </>
         ) : (
           <div className="text-[#457B9D]">لم تقم بإجراء اختبار الثقة بعد.</div>

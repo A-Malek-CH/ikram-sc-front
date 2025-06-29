@@ -119,6 +119,13 @@ export const userAPI = {
       body: JSON.stringify(data),
     });
   },
+    getAgreementStatus: async (token: string) => {
+  return fetchAPI("/users/agreement/", {
+    headers: {
+      Authorization: `Token ${token}`,
+    },
+  })
+},
 
   // Get user profile
   getProfile: async (token: string) => {
@@ -172,6 +179,38 @@ export const userAPI = {
   },
 }
 
+export const agreementAPI = {
+  // GET agreement status or data
+  get: async (token: string) => {
+    return fetchAPI("/users/agreement/", {
+      headers: {
+        Authorization: `Token ${token}`,
+      },
+    });
+  },
+
+  // POST to submit the agreement
+  submit: async (
+    token: string,
+    data: {
+      motivation_choices: string[];
+      other_motivation: string;
+      has_confidence_issues: boolean;
+      confidence_issues: string[];
+      other_issues: string;
+      expectations: string[];
+      other_expectations: string;
+    }
+  ) => {
+    return fetchAPI("/users/agreement/", {
+      method: "POST",
+      headers: {
+        Authorization: `Token ${token}`,
+      },
+      body: JSON.stringify(data),
+    });
+  },
+};
 // Sessions and chat APIs
 export const sessionAPI = {
   
@@ -222,6 +261,7 @@ body: JSON.stringify({ score }),
       },
     })
   },
+  
 
   // Send a chat message
   sendChatMessage: async (token: string, sessionId: number, message: string) => {
@@ -233,6 +273,7 @@ body: JSON.stringify({ score }),
       body: JSON.stringify({ session_id: sessionId, message }),
     })
   },
+  
   resetSession: async (token: string, sessionId: number) => {
   const response = await fetch(`${API_BASE_URL}/users/reset_session/`, {
     method: "POST",
