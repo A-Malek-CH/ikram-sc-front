@@ -233,7 +233,7 @@ body: JSON.stringify({ score }),
 });
 },
   
-
+/*
   // Initialize chat for a session
   initializeChat: async (token: string, sessionId: number) => {
   try {
@@ -251,7 +251,71 @@ body: JSON.stringify({ score }),
     console.error("Error initializing chat:", error);
     return [];
   }
-},
+},*/
+initializeChatStream: async (
+    token: string,
+    sessionId: number,
+    // This function will be called every time a new message arrives
+    onMessage: (message: any) => void,
+    // This will be called if there's an error
+    onError: (error: any) => void
+  ) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/users/initialize_chat/`, {
+        method: "POST",
+        headers: {
+          Authorization: `Token ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ session_id: sessionId }),
+      });
+
+      if (!response.ok || !response.body) {
+        throw new Error(`Server error: ${response.status}`);
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder("utf-8");
+
+      // Loop to read the stream until it's finished
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) {
+          break; // The stream has ended
+        }
+
+        const chunk = decoder.decode(value);
+        // SSE messages are separated by double newlines.
+        // We process each message in the chunk.
+        const lines = chunk.split("\n\n");
+
+        for (const line of lines) {
+          if (line.startsWith("data: ")) {
+            const jsonString = line.substring(6); // Remove "data: "
+            if (jsonString) {
+              try {
+                const messageData = JSON.parse(jsonString);
+                // Check if the backend sent an error message
+                if (messageData.error) {
+                  console.error("Stream error from backend:", messageData.error);
+                  onError(messageData.error);
+                } else {
+                  // If it's a valid message, pass it to our component
+                  onMessage(messageData);
+                }
+              } catch (e) {
+                console.error("Failed to parse JSON from stream chunk:", jsonString);
+              }
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Error initializing chat stream:", error);
+      onError(error);
+    }
+  },
+
 
   // Get chat messages for a session
   getChatMessages: async (token: string, sessionId: number) => {
