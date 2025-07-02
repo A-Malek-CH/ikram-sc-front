@@ -392,7 +392,7 @@ export default function StagePage() {
                 <div className="flex flex-col items-center justify-center h-[400px] text-[#457B9D]">
                   <MessageCircle className="h-12 w-12 mb-4 opacity-50" />
                   <p className="text-center">
-                    {session.is_unlocked ? "ابدأ المحادثة بإرسال رسالة" : "هذه المرحلة غير متاحة حالياً"}
+                    {session.is_unlocked ? "جاري انشاء المحادثة" : "هذه المرحلة غير متاحة حالياً"}
                   </p>
                 </div>
               )}
