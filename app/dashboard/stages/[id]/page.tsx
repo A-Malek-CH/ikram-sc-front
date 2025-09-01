@@ -12,6 +12,8 @@ import Link from "next/link"
 import { useAuth } from "@/lib/auth-context"
 import { sessionAPI } from "@/lib/api"
 import { useToast } from "@/components/ui/use-toast"
+import { useTTS } from "@/app/context/tts-context"
+
 
 declare global {
   interface Window {
@@ -64,6 +66,8 @@ export default function StagePage() {
   const router = useRouter()
   const { token, user } = useAuth()
   const { toast } = useToast()
+  const { enabled, setEnabled } = useTTS()
+
 
   const [session, setSession] = useState<Session | null>(null)
   const [messages, setMessages] = useState<Message[]>([])
@@ -75,28 +79,23 @@ export default function StagePage() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const sessionId = Number(params.id)
 
-  // --- FIX STEP 1: Add a ref to track spoken message IDs ---
   const spokenMessageIds = useRef(new Set<number>());
 
-  // --- FIX STEP 2: Make the speakText function smarter ---
   const speakText = (messageToSpeak: Message) => {
-    // Don't speak if the browser doesn't support it, if there's no message,
-    // or if the message has already been spoken.
-    if (!window.speechSynthesis || !messageToSpeak || spokenMessageIds.current.has(messageToSpeak.id)) {
-      return;
-    }
+  if (!window.speechSynthesis || !messageToSpeak) return;
+  if (!enabled) return; // ✅ Don't speak if disabled
+  if (spokenMessageIds.current.has(messageToSpeak.id)) return;
 
-    // Mark the message as spoken immediately to prevent re-queuing
-    spokenMessageIds.current.add(messageToSpeak.id);
+  spokenMessageIds.current.add(messageToSpeak.id);
 
-    const utterance = new SpeechSynthesisUtterance(messageToSpeak.message);
-    utterance.lang = "ar-SA";
-    utterance.rate = 1;
-    utterance.pitch = 1;
+  const utterance = new SpeechSynthesisUtterance(messageToSpeak.message);
+  utterance.lang = "ar-SA";
+  utterance.rate = 1;
+  utterance.pitch = 1;
 
-    // The browser's speech API has its own queue. We just add to it.
-    window.speechSynthesis.speak(utterance);
-  };
+  window.speechSynthesis.speak(utterance);
+};
+
 
   // --- FIX STEP 3: Add a cleanup effect to stop speech when leaving the page ---
   useEffect(() => {
@@ -320,6 +319,19 @@ export default function StagePage() {
         </div>
       </div>
         <div className="mb-4 flex justify-end">
+           <Button
+  onClick={() => {
+    if (enabled) {
+      // Turning OFF → stop any queued or current speech
+      window.speechSynthesis.cancel();
+    }
+    setEnabled(!enabled);
+  }}
+  className="m-2 bg-[#1D3557] hover:bg-[#0F1C2D]"
+>
+  {enabled ? "🔊 إيقاف الصوت" : "🔈 تشغيل الصوت"}
+</Button>
+
   <Button
     variant="outline"
     className="text-red-600 border-red-500 hover:bg-red-50"

@@ -1,195 +1,211 @@
-// API client for interacting with the backend
+// lib/api.ts — unified API client
 
-// Base URL for API requests
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
+const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/+$/, "");
 
-// Helper function for making API requests
+// Build a safe URL from a relative endpoint or pass-through absolute URLs
+function buildUrl(endpoint: string) {
+  if (/^https?:\/\//i.test(endpoint)) return endpoint; // already absolute
+  if (!endpoint.startsWith("/")) endpoint = `/${endpoint}`;
+  return `${API_BASE}${endpoint}`;
+}
+
+// Generic fetch wrapper
 async function fetchAPI(endpoint: string, options: RequestInit = {}) {
-  const url = `${API_BASE_URL}${endpoint}`
+  const url = buildUrl(endpoint);
 
-  // Set default headers
-  const headers = {
-    "Content-Type": "application/json",
-    ...options.headers,
-  }
+  const isFormData =
+    typeof FormData !== "undefined" && options.body instanceof FormData;
+
+  const headers: Record<string, string> = {
+    ...(isFormData ? {} : { "Content-Type": "application/json" }),
+    ...(options.headers as Record<string, string>),
+  };
 
   const response = await fetch(url, {
     ...options,
     headers,
-  })
+  });
 
-  // Handle non-2xx responses
   if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}))
-    throw new Error(errorData.message || "حدث خطأ أثناء الاتصال بالخادم")
+    // Try to read error JSON if possible; otherwise throw generic
+    let message = "حدث خطأ أثناء الاتصال بالخادم";
+    try {
+      const data = await response.json();
+      if (data?.message) message = data.message;
+    } catch {
+      // ignore parse error
+    }
+    throw new Error(message);
   }
 
-  // Return JSON response for everything except image responses
-  const contentType = response.headers.get("content-type")
+  const contentType = response.headers.get("content-type");
   if (contentType && contentType.includes("application/json")) {
-    return response.json()
+    return response.json();
   }
-
-  return response
+  return response;
 }
 
-// Authentication APIs
+/* =========================
+   AUTH
+========================= */
 export const authAPI = {
-  // Sign up - send email, password, first_name, last_name
-  signup: async (userData: { email: string; password: string; first_name: string; last_name: string ;major: string; 
-  academic_year: string; }) => {
+  signup: async (userData: {
+    email: string;
+    password: string;
+    first_name: string;
+    last_name: string;
+    major?: string;
+    academic_year?: string;
+  }) => {
     return fetchAPI("/users/signup/", {
       method: "POST",
       body: JSON.stringify(userData),
-    })
+    });
   },
 
-  // Resend verification code
   resendCode: async (email: string) => {
     return fetchAPI("/users/resend_code/", {
       method: "POST",
       body: JSON.stringify({ email }),
-    })
+    });
   },
 
-  // Verify signup with code
   verifySignup: async (email: string, code: string) => {
     return fetchAPI("/users/verify_signup/", {
       method: "POST",
       body: JSON.stringify({ email, code }),
-    })
+    });
   },
 
-  // Login - get token and role
   login: async (credentials: { email: string; password: string }) => {
     return fetchAPI("/users/login/", {
       method: "POST",
       body: JSON.stringify(credentials),
-    })
+    });
   },
 
-  // Request password reset
   resetPassword: async (email: string) => {
     return fetchAPI("/users/reset_password/", {
       method: "POST",
       body: JSON.stringify({ email }),
-    })
+    });
   },
 
-  // Verify password reset code
   verifyResetCode: async (email: string, code: string) => {
     return fetchAPI("/users/verify_reset_password/", {
       method: "PUT",
       body: JSON.stringify({ email, code }),
-    })
+    });
   },
 
-  // Set new password after reset
   setNewPassword: async (email: string, code: string, password: string) => {
     return fetchAPI("/users/verify_reset_password/", {
       method: "POST",
       body: JSON.stringify({ email, code, password }),
-    })
+    });
   },
-}
+};
 
-// Fix the Authorization header format in all API functions
-// User profile APIs
+/* =========================
+   USER
+========================= */
 export const userAPI = {
-
   getConfidenceScore: async (token: string) => {
-  return fetchAPI("/users/confidence_score/", {
-    headers: {
-      Authorization: `Token ${token}`,
-    },
-  });
-},
+    return fetchAPI("/users/confidence_score/", {
+      headers: { Authorization: `Token ${token}` },
+    });
+  },
 
+  getAllAchievements: async (token: string) => {
+    return fetchAPI("/users/achievements/", {
+      headers: { Authorization: `Token ${token}` },
+    });
+  },
 
-    // Change major and academic year
+  getMyAchievements: async (token: string) => {
+    return fetchAPI("/users/my_achievements/", {
+      headers: { Authorization: `Token ${token}` },
+    });
+  },
+
+  // Update profile extras (major, academic_year, sex, bio)
   changeProfile: async (
     token: string,
-    data: { major?: string; academic_year?: string }
+    data: {
+      major?: string;
+      academic_year?: string;
+      sex?: "male" | "female" | "other";
+      bio?: string;
+    }
   ) => {
     return fetchAPI("/users/change_profile/", {
       method: "POST",
-      headers: {
-        Authorization: `Token ${token}`,
-      },
+      headers: { Authorization: `Token ${token}` },
       body: JSON.stringify(data),
     });
   },
-    getAgreementStatus: async (token: string) => {
-  return fetchAPI("/users/agreement/", {
-    headers: {
-      Authorization: `Token ${token}`,
-    },
-  })
-},
 
-  // Get user profile
-  getProfile: async (token: string) => {
-    return fetchAPI("/users/my_profile/", {
-      headers: {
-        Authorization: `Token ${token}`,
-      },
-    })
-  },
-
-  // Change profile picture
-  changeProfilePicture: async (token: string, picture: File) => {
-    const formData = new FormData()
-    formData.append("picture", picture)
-
-    return fetchAPI("/users/change_profile_picture/", {
-      method: "POST",
-      headers: {
-        Authorization: `Token ${token}`,
-        // Don't set Content-Type here, it will be set automatically with the boundary
-      },
-      body: formData,
-    })
-  },
-
-  // Get profile picture URL
-  getProfilePictureUrl: (userId: number) => {
-    return `${API_BASE_URL}/users/profile_picture/${userId}/`
-  },
-
-  // Change email
-  changeEmail: async (token: string, email: string) => {
-    return fetchAPI("/users/change_email/", {
-      method: "POST",
-      headers: {
-        Authorization: `Token ${token}`,
-      },
-      body: JSON.stringify({ email }),
-    })
-  },
-
-  // Change password
-  changePassword: async (token: string, oldPassword: string, newPassword: string) => {
-    return fetchAPI("/users/change_password/", {
-      method: "POST",
-      headers: {
-        Authorization: `Token ${token}`,
-      },
-      body: JSON.stringify({ old_password: oldPassword, new_password: newPassword }),
-    })
-  },
-}
-
-export const agreementAPI = {
-  // GET agreement status or data
-  get: async (token: string) => {
+  getAgreementStatus: async (token: string) => {
     return fetchAPI("/users/agreement/", {
-      headers: {
-        Authorization: `Token ${token}`,
-      },
+      headers: { Authorization: `Token ${token}` },
     });
   },
 
-  // POST to submit the agreement
+  getProfile: async (token: string) => {
+    return fetchAPI("/users/my_profile/", {
+      headers: { Authorization: `Token ${token}` },
+    });
+  },
+
+  changeProfilePicture: async (token: string, picture: File) => {
+    const formData = new FormData();
+    formData.append("picture", picture);
+
+    return fetchAPI("/users/change_profile_picture/", {
+      method: "POST",
+      headers: { Authorization: `Token ${token}` },
+      body: formData, // don't set Content-Type manually
+    });
+  },
+
+  getProfilePictureUrl: (userId: number) => {
+    return buildUrl(`/users/profile_picture/${userId}/`);
+  },
+
+  changeEmail: async (token: string, email: string) => {
+    return fetchAPI("/users/change_email/", {
+      method: "POST",
+      headers: { Authorization: `Token ${token}` },
+      body: JSON.stringify({ email }),
+    });
+  },
+
+  changePassword: async (
+    token: string,
+    oldPassword: string,
+    newPassword: string
+  ) => {
+    return fetchAPI("/users/change_password/", {
+      method: "POST",
+      headers: { Authorization: `Token ${token}` },
+      body: JSON.stringify({
+        old_password: oldPassword,
+        new_password: newPassword,
+      }),
+    });
+  },
+};
+
+/* =========================
+   AGREEMENT
+========================= */
+export const agreementAPI = {
+  get: async (token: string) => {
+    return fetchAPI("/users/agreement/", {
+      headers: { Authorization: `Token ${token}` },
+    });
+  },
+
   submit: async (
     token: string,
     data: {
@@ -204,64 +220,39 @@ export const agreementAPI = {
   ) => {
     return fetchAPI("/users/agreement/", {
       method: "POST",
-      headers: {
-        Authorization: `Token ${token}`,
-      },
+      headers: { Authorization: `Token ${token}` },
       body: JSON.stringify(data),
     });
   },
 };
-// Sessions and chat APIs
-export const sessionAPI = {
-  
 
-  // Get all sessions
+/* =========================
+   SESSIONS / CHAT
+========================= */
+export const sessionAPI = {
   getSessions: async (token: string) => {
     return fetchAPI("/users/sessions/", {
-      headers: {
-        Authorization: `Token ${token}`,
-      },
-    })
-  },
-  submitConfidenceScore: async (token: string, score: number) => {
-return fetchAPI("/users/submit_confidence_score/", {
-method: "POST",
-headers: {
-Authorization: `Token ${token}`,
-},
-body: JSON.stringify({ score }),
-});
-},
-  
-/*
-  // Initialize chat for a session
-  initializeChat: async (token: string, sessionId: number) => {
-  try {
-    const response = await fetchAPI("/users/initialize_chat/", {
-      method: "POST",
-      headers: {
-        Authorization: `Token ${token}`,
-      },
-      body: JSON.stringify({ session_id: sessionId }),
+      headers: { Authorization: `Token ${token}` },
     });
+  },
 
-    // Ensure the response is an array
-    return Array.isArray(response) ? response : [];
-  } catch (error) {
-    console.error("Error initializing chat:", error);
-    return [];
-  }
-},*/
-initializeChatStream: async (
+  submitConfidenceScore: async (token: string, score: number) => {
+    return fetchAPI("/users/submit_confidence_score/", {
+      method: "POST",
+      headers: { Authorization: `Token ${token}` },
+      body: JSON.stringify({ score }),
+    });
+  },
+
+  // Streaming must use the native fetch to access response.body
+  initializeChatStream: async (
     token: string,
     sessionId: number,
-    // This function will be called every time a new message arrives
     onMessage: (message: any) => void,
-    // This will be called if there's an error
     onError: (error: any) => void
   ) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/users/initialize_chat/`, {
+      const response = await fetch(buildUrl("/users/initialize_chat/"), {
         method: "POST",
         headers: {
           Authorization: `Token ${token}`,
@@ -277,35 +268,29 @@ initializeChatStream: async (
       const reader = response.body.getReader();
       const decoder = new TextDecoder("utf-8");
 
-      // Loop to read the stream until it's finished
       while (true) {
         const { done, value } = await reader.read();
-        if (done) {
-          break; // The stream has ended
-        }
+        if (done) break;
 
         const chunk = decoder.decode(value);
-        // SSE messages are separated by double newlines.
-        // We process each message in the chunk.
         const lines = chunk.split("\n\n");
-
         for (const line of lines) {
           if (line.startsWith("data: ")) {
-            const jsonString = line.substring(6); // Remove "data: "
-            if (jsonString) {
-              try {
-                const messageData = JSON.parse(jsonString);
-                // Check if the backend sent an error message
-                if (messageData.error) {
-                  console.error("Stream error from backend:", messageData.error);
-                  onError(messageData.error);
-                } else {
-                  // If it's a valid message, pass it to our component
-                  onMessage(messageData);
-                }
-              } catch (e) {
-                console.error("Failed to parse JSON from stream chunk:", jsonString);
+            const jsonString = line.substring(6);
+            if (!jsonString) continue;
+            try {
+              const messageData = JSON.parse(jsonString);
+              if (messageData.error) {
+                console.error("Stream error from backend:", messageData.error);
+                onError(messageData.error);
+              } else {
+                onMessage(messageData);
               }
+            } catch (e) {
+              console.error(
+                "Failed to parse JSON from stream chunk:",
+                jsonString
+              );
             }
           }
         }
@@ -316,42 +301,52 @@ initializeChatStream: async (
     }
   },
 
-
-  // Get chat messages for a session
   getChatMessages: async (token: string, sessionId: number) => {
     return fetchAPI(`/users/chat/?session_id=${sessionId}`, {
-      headers: {
-        Authorization: `Token ${token}`,
-      },
-    })
+      headers: { Authorization: `Token ${token}` },
+    });
   },
-  
 
-  // Send a chat message
   sendChatMessage: async (token: string, sessionId: number, message: string) => {
     return fetchAPI("/users/chat/", {
       method: "POST",
-      headers: {
-        Authorization: `Token ${token}`,
-      },
+      headers: { Authorization: `Token ${token}` },
       body: JSON.stringify({ session_id: sessionId, message }),
-    })
+    });
   },
-  
+
   resetSession: async (token: string, sessionId: number) => {
-  const response = await fetch(`${API_BASE_URL}/users/reset_session/`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Token ${token}`,
-    },
-    body: JSON.stringify({ session_id: sessionId }),
-  });
+    return fetchAPI("/users/reset_session/", {
+      method: "POST",
+      headers: { Authorization: `Token ${token}` },
+      body: JSON.stringify({ session_id: sessionId }),
+    });
+  },
+};
 
-  if (!response.ok) {
-    throw new Error("Failed to reset session");
-  }
+/* =========================
+   NOTES
+========================= */
+export const notesAPI = {
+  getNotes: async (token: string) => {
+    return fetchAPI("/users/notes/", {
+      headers: { Authorization: `Token ${token}` },
+    });
+  },
 
-  return response.json();
-},
+  addNote: async (token: string, note: { content: string }) => {
+    return fetchAPI("/users/notes/", {
+      method: "POST",
+      headers: { Authorization: `Token ${token}` },
+      body: JSON.stringify(note),
+    });
+  },
+
+  deleteNote: async (token: string, id: number) => {
+    await fetchAPI(`/users/notes/${id}/`, {
+      method: "DELETE",
+      headers: { Authorization: `Token ${token}` },
+    });
+    return true;
+  },
 };

@@ -32,38 +32,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true)
   const router = useRouter()
 
-  // Initialize auth state from localStorage on mount
+  // ✅ Restore session from localStorage
   useEffect(() => {
     const storedToken = localStorage.getItem("token")
     const storedUser = localStorage.getItem("user")
 
-    if (storedToken && storedUser) {
+    if (storedToken) {
       setToken(storedToken)
-      setUser(JSON.parse(storedUser))
+      if (storedUser) {
+        setUser(JSON.parse(storedUser))
+      }
     }
 
     setIsLoading(false)
   }, [])
 
-  // Fetch user profile when token changes
+  // ✅ Fetch profile when token changes
   useEffect(() => {
     const fetchUserProfile = async () => {
       if (!token) return
 
       try {
         const userData = await userAPI.getProfile(token)
-        // The API doesn't return role, so we need to preserve it from the login
         const role = user?.role || "user"
 
-        setUser({
-          ...userData,
-          role,
-        })
-
-        localStorage.setItem("user", JSON.stringify({ ...userData, role }))
+        const updatedUser = { ...userData, role }
+        setUser(updatedUser)
+        localStorage.setItem("user", JSON.stringify(updatedUser))
       } catch (error) {
         console.error("Failed to fetch user profile:", error)
-        // If we can't fetch the profile, the token might be invalid
         if (error instanceof Error && error.message.includes("401")) {
           logout()
         }
@@ -79,10 +76,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setToken(newToken)
     localStorage.setItem("token", newToken)
 
-    // Set a minimal user object with role until we fetch the full profile
     setUser({ id: 0, email: "", first_name: "", last_name: "", role: role as "user" | "admin" })
 
-    // Redirect based on role
     if (role === "admin") {
       router.push("/admin/dashboard")
     } else {

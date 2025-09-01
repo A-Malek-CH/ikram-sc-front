@@ -12,7 +12,9 @@ import { useToast } from "@/components/ui/use-toast"
 import { useAuth } from "@/lib/auth-context"
 import { userAPI } from "@/lib/api"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { User, Mail, Lock, Camera, Edit, Save, X } from "lucide-react"
+import { Camera, Edit, Save, X } from "lucide-react"
+
+type Sex = "" | "male" | "female" | "other"
 
 export default function ProfilePage() {
   const { toast } = useToast()
@@ -28,7 +30,8 @@ export default function ProfilePage() {
     email: "",
     major: "",
     academic_year: "",
-    
+    sex: "" as Sex,
+    bio: "",
   })
 
   const [newEmail, setNewEmail] = useState("")
@@ -39,31 +42,32 @@ export default function ProfilePage() {
   })
 
   useEffect(() => {
-  if (!token) return;
+    if (!token) return
 
-  const fetchProfile = async () => {
-    try {
-      const data = await userAPI.getProfile(token);
-      setProfileData({
-        first_name: data.first_name || "",
-        last_name: data.last_name || "",
-        email: data.email || "",
-        major: data.major || "",  // new field (adjust based on model)
-        academic_year: data.academic_year || "",  // if you also added academic_year
-      });
-    } catch (error) {
-      console.error("Failed to fetch profile:", error);
-      toast({
-        title: "فشل تحميل الملف الشخصي",
-        description: "حدث خطأ أثناء تحميل معلوماتك.",
-        variant: "destructive",
-      });
+    const fetchProfile = async () => {
+      try {
+        const data = await userAPI.getProfile(token)
+        setProfileData({
+          first_name: data.first_name || "",
+          last_name: data.last_name || "",
+          email: data.email || "",
+          major: data.major || "",
+          academic_year: data.academic_year || "",
+          sex: (data.sex as Sex) || "",
+          bio: data.bio || "",
+        })
+      } catch (error) {
+        console.error("Failed to fetch profile:", error)
+        toast({
+          title: "فشل تحميل الملف الشخصي",
+          description: "حدث خطأ أثناء تحميل معلوماتك.",
+          variant: "destructive",
+        })
+      }
     }
-  };
 
-  fetchProfile();
-}, [token, toast]);
-
+    fetchProfile()
+  }, [token, toast])
 
   const handleProfilePictureChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!token || !e.target.files || e.target.files.length === 0) return
@@ -77,7 +81,6 @@ export default function ProfilePage() {
         title: "تم تغيير الصورة",
         description: "تم تغيير صورة الملف الشخصي بنجاح",
       })
-      setProfileData({ ...profileData })
     } catch (error) {
       console.error("Failed to change profile picture:", error)
       toast({
@@ -91,39 +94,40 @@ export default function ProfilePage() {
   }
 
   const handleSaveProfile = async () => {
-  setIsLoading(true);
-  try {
-    // Update backend profile
-   if (!token) return;
-await userAPI.changeProfile(token, {
-  major: profileData.major,
-  academic_year: profileData.academic_year,
-});
+    setIsLoading(true)
+    try {
+      if (!token) return
 
+      // Save profile fields to backend
+      await userAPI.changeProfile(token, {
+        major: profileData.major,
+        academic_year: profileData.academic_year,
+        sex: profileData.sex || undefined,
+        bio: profileData.bio || "",
+      })
 
-    // Update local user context
-    updateUser({
-      first_name: profileData.first_name,
-      last_name: profileData.last_name,
-    });
+      // Names are NOT saved to backend here (no endpoint) — keep UI in sync for header, etc.
+      updateUser({
+        first_name: profileData.first_name,
+        last_name: profileData.last_name,
+      })
 
-    setIsEditing(false);
-    toast({
-      title: "تم تحديث الملف الشخصي",
-      description: "تم حفظ التغييرات بنجاح",
-    });
-  } catch (error) {
-    console.error("Failed to update profile:", error);
-    toast({
-      title: "فشل تحديث الملف الشخصي",
-      description: error instanceof Error ? error.message : "حدث خطأ أثناء تحديث الملف الشخصي",
-      variant: "destructive",
-    });
-  } finally {
-    setIsLoading(false);
+      setIsEditing(false)
+      toast({
+        title: "تم تحديث الملف الشخصي",
+        description: "تم حفظ التغييرات بنجاح",
+      })
+    } catch (error) {
+      console.error("Failed to update profile:", error)
+      toast({
+        title: "فشل تحديث الملف الشخصي",
+        description: error instanceof Error ? error.message : "حدث خطأ أثناء تحديث الملف الشخصي",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoading(false)
+    }
   }
-};
-
 
   const handleChangeEmail = async () => {
     if (!token) return
@@ -230,9 +234,8 @@ await userAPI.changeProfile(token, {
         </div>
       </div>
 
-      {/* Main Tabs Component Wrapping Both Cards */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        {/* Left Profile Card - md:col-span-1 */}
+        {/* Left column */}
         <Card className="md:col-span-1 border-none shadow-md">
           <CardContent className="pt-6">
             <div className="flex flex-col items-center">
@@ -269,8 +272,9 @@ await userAPI.changeProfile(token, {
               <p className="text-gray-500 text-sm">{user.email}</p>
 
               {profileData.major?.trim() !== "" && (
-
-                <Badge className="mt-2 bg-[#A8DADC] text-[#1D3557] hover:bg-[#E1E8ED]">{profileData.major}</Badge>
+                <Badge className="mt-2 bg-[#A8DADC] text-[#1D3557] hover:bg-[#E1E8ED]">
+                  {profileData.major}
+                </Badge>
               )}
             </div>
 
@@ -296,9 +300,9 @@ await userAPI.changeProfile(token, {
           </CardContent>
         </Card>
 
-        {/* Right Content Card - md:col-span-3 */}
+        {/* Right column */}
         <Card className="md:col-span-3 border-none shadow-md">
-          {/* Profile Tab Content */}
+          {/* Profile tab */}
           <TabsContent value="profile" className="mt-0">
             <CardHeader>
               <CardTitle className="text-xl text-[#1D3557]">معلومات الملف الشخصي</CardTitle>
@@ -329,6 +333,7 @@ await userAPI.changeProfile(token, {
                       className="border-[#1D3557] focus:border-[#1D3557] focus-visible:ring-[#1D3557]"
                     />
                   </div>
+
                   <div className="space-y-2 md:col-span-2">
                     <Label htmlFor="major" className="text-[#1D3557]">
                       التخصص
@@ -340,18 +345,50 @@ await userAPI.changeProfile(token, {
                       className="border-[#1D3557] focus:border-[#1D3557] focus-visible:ring-[#1D3557]"
                     />
                   </div>
-                  <div className="space-y-2 md:col-span-2">
-  <Label htmlFor="academic_year" className="text-[#1D3557]">
-    السنة الدراسية
-  </Label>
-  <Input
-    id="academic_year"
-    value={profileData.academic_year || ""}
-    onChange={(e) => setProfileData({ ...profileData, academic_year: e.target.value })}
-    className="border-[#1D3557] focus:border-[#1D3557] focus-visible:ring-[#1D3557]"
-  />
-</div>
 
+                  <div className="space-y-2 md:col-span-2">
+                    <Label htmlFor="academic_year" className="text-[#1D3557]">
+                      السنة الدراسية
+                    </Label>
+                    <Input
+                      id="academic_year"
+                      value={profileData.academic_year || ""}
+                      onChange={(e) => setProfileData({ ...profileData, academic_year: e.target.value })}
+                      className="border-[#1D3557] focus:border-[#1D3557] focus-visible:ring-[#1D3557]"
+                    />
+                  </div>
+
+                  {/* Sex */}
+                  <div className="space-y-2">
+                    <Label htmlFor="sex" className="text-[#1D3557]">
+                      الجنس
+                    </Label>
+                    <select
+                      id="sex"
+                      value={profileData.sex}
+                      onChange={(e) => setProfileData({ ...profileData, sex: e.target.value as Sex })}
+                      className="border rounded-md p-2"
+                    >
+                      <option value="">— اختر —</option>
+                      <option value="male">ذكر</option>
+                      <option value="female">أنثى</option>
+                      
+                    </select>
+                  </div>
+
+                  {/* Bio */}
+                  <div className="space-y-2 md:col-span-2">
+                    <Label htmlFor="bio" className="text-[#1D3557]">
+                    تعريف مطول عن النفس 
+                    </Label>
+                    <textarea
+                      id="bio"
+                      value={profileData.bio}
+                      onChange={(e) => setProfileData({ ...profileData, bio: e.target.value })}
+                      className="w-full border rounded-md p-2 min-h-[100px]"
+                      placeholder="عرّف بنفسك بإيجاز…"
+                    />
+                  </div>
                 </div>
               ) : (
                 <div className="space-y-6">
@@ -372,21 +409,40 @@ await userAPI.changeProfile(token, {
                   </div>
 
                   {profileData.major?.trim() !== "" && (
-
                     <div className="bg-[#A8DADC] p-4 rounded-lg">
                       <p className="text-sm font-medium text-[#1D3557] mb-1">التخصص</p>
                       <p className="text-lg font-medium text-[#1D3557]">{profileData.major}</p>
                     </div>
                   )}
-                  {profileData.academic_year && (
 
-<div className="bg-[#A8DADC] p-4 rounded-lg"> <p className="text-sm font-medium text-[#1D3557] mb-1">السنة الدراسية</p> <p className="text-lg font-medium text-[#1D3557]">{profileData.academic_year}</p> </div> )}
+                  {profileData.academic_year?.trim() !== "" && (
+                    <div className="bg-[#A8DADC] p-4 rounded-lg">
+                      <p className="text-sm font-medium text-[#1D3557] mb-1">السنة الدراسية</p>
+                      <p className="text-lg font-medium text-[#1D3557]">{profileData.academic_year}</p>
+                    </div>
+                  )}
+
+                  {profileData.sex && (
+                    <div className="bg-[#A8DADC] p-4 rounded-lg">
+                      <p className="text-sm font-medium text-[#1D3557] mb-1">الجنس</p>
+                      <p className="text-lg font-medium text-[#1D3557]">
+                        {profileData.sex === "male" ? "ذكر" : profileData.sex === "female" ? "أنثى" :"غير ذلك"}
+                      </p>
+                    </div>
+                  )}
+
+                  {profileData.bio?.trim() !== "" && (
+                    <div className="bg-[#A8DADC] p-4 rounded-lg">
+                      <p className="text-sm font-medium text-[#1D3557] mb-1">نبذة تعريفية</p>
+                      <p className="text-lg font-medium text-[#1D3557] whitespace-pre-line">{profileData.bio}</p>
+                    </div>
+                  )}
                 </div>
               )}
             </CardContent>
           </TabsContent>
 
-          {/* Email Tab Content */}
+          {/* Email tab */}
           <TabsContent value="email" className="mt-0">
             <CardHeader>
               <CardTitle className="text-xl text-[#1D3557]">تغيير البريد الإلكتروني</CardTitle>
@@ -435,7 +491,7 @@ await userAPI.changeProfile(token, {
             </CardFooter>
           </TabsContent>
 
-          {/* Password Tab Content */}
+          {/* Password tab */}
           <TabsContent value="password" className="mt-0">
             <CardHeader>
               <CardTitle className="text-xl text-[#1D3557]">تغيير كلمة المرور</CardTitle>

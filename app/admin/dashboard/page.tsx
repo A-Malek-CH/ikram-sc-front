@@ -78,7 +78,8 @@ export default function AdminAnswersPage() {
       <h1 className="text-2xl font-bold text-[#1D3557]">تصدير بيانات المستخدمين</h1>
       <Card className="p-6">
         <p className="text-gray-600 mb-4">
-          يمكنك تحميل جميع إجابات اختبار الثقة وإجابات الجلسات الخاصة بجميع المستخدمين في ملف Excel.
+          يمكنك تحميل جميع إجابات اختبار الثقة
+           وإجابات الجلسات الخاصة بجميع المستخدمين في ملف Excel.
         </p>
         <Button onClick={handleExport} disabled={loading} className="bg-[#1D3557] hover:bg-[#0F1C2D]">
           {loading ? "جارٍ التحميل..." : "تحميل ملف Excel"}
