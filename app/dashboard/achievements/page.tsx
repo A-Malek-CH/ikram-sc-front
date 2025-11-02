@@ -104,7 +104,22 @@ export default function AchievementsPage() {
       <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
         {(all ?? []).map((ach) => {
           const isUnlocked = unlockedKeys.has(ach.key)
-          const src = ach.image_url || ach.image || ""   // ✅ primary: image_url
+          // Build a full image URL safely
+const backendBase = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, "") || "";
+let src = "";
+
+if (ach.image_url) {
+  // if the backend already provides a relative or absolute static path
+  src = ach.image_url.startsWith("http")
+    ? ach.image_url
+    : `${backendBase}${ach.image_url.startsWith("/") ? "" : "/"}${ach.image_url}`;
+} else if (ach.image) {
+  // fallback for old field (like "static/achievements/goal_setting.png")
+  src = ach.image.startsWith("http")
+    ? ach.image
+    : `${backendBase}${ach.image.startsWith("/") ? "" : "/"}${ach.image}`;
+}
+  // ✅ primary: image_url
           return (
             <Card
               key={ach.key}
